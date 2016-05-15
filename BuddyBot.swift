@@ -11,13 +11,25 @@
     import Darwin
 #endif
 
+enum RobotState {
+    case STOPPED
+    case FORWARD
+    case REVERSE
+    case TURNINGLEFT
+    case TURNINGRIGHT
+}
+
 struct BuddyBot {
     private let FORWARD = 0
     private let REVERSE = 1
+    private let RANGECHECK = 18.0
     
-    private let runningLed: SBLed
+    private let redLed: SBLed
+    private let greenLed: SBLed
+    private let yellowLed: SBLed
     private let startButton: SBButton
-    private let forwardRangeFinder: SBLV_MaxSonar_EZ2
+    private let rightRangeFinder: SBLV_MaxSonar_EZ2
+    private let leftRangeFinder: SBLV_MaxSonar_EZ2
     
     private let rightMotor: SBGenericMotor
     private let leftMotor: SBGenericMotor
@@ -26,11 +38,15 @@ struct BuddyBot {
     init?() {
         
         do {
-            runningLed = try SBLed(header: .P9, pin: 11, componentName: "Running LED")
+            redLed = try SBLed(header: .P9, pin: 11, componentName: "Red LED")
+            yellowLed = try SBLed(header: .P9, pin: 13, componentName: "Green LED")
+            greenLed = try SBLed(header: .P9, pin: 15, componentName: "Yellow LED")
+            
             startButton = try SBButton(header: .P9, pin: 12, componentName: "Start Button")
             rightMotor = try SBGenericMotor(headerSpeed: .P8, pinSpeed: 13, headerDirection: .P8, pinDirection: 14, componentName: "Right Track")
             leftMotor = try SBGenericMotor(headerSpeed: .P8, pinSpeed: 19, headerDirection: .P8, pinDirection: 16, componentName: "Left Track")
-            forwardRangeFinder = try SBLV_MaxSonar_EZ2(header: .P9, pin: 40, componentName: "Forward Range Finder")
+            leftRangeFinder = try SBLV_MaxSonar_EZ2(header: .P9, pin: 40, componentName: "right Range Finder")
+            rightRangeFinder = try SBLV_MaxSonar_EZ2(header: .P9, pin: 39, componentName: "left Range Finder")
         } catch {
             return nil
         }
@@ -70,42 +86,91 @@ struct BuddyBot {
         leftMotor.setSpeed(25)
     }
     
+    func turnLeft()  {
+        rightMotor.setDirection(FORWARD)
+        leftMotor.setDirection(REVERSE)
+        
+        rightMotor.setSpeed(25)
+        leftMotor.setSpeed(25)
+    }
+    
     func start() {
         initRover()
-
-        var buttonPressed = false
-        while !buttonPressed {
-            if let buttonValue = startButton.isButtonPressed() {
-                buttonPressed = buttonValue
+        while(true) {
+            var buttonPressed = false
+            var robotState = RobotState.STOPPED
+            setLeds(robotState)
+            while !buttonPressed {
+                if let buttonValue = startButton.isButtonPressed() {
+                    buttonPressed = buttonValue
+                }
             }
+            
+            var buttonStillPressed = true
+            var running = true
+            
+            while(running) {
+                let leftRange = leftRangeFinder.getRange()
+                let rightRange = rightRangeFinder.getRange()
+                let checkLeftRange = (robotState == .TURNINGLEFT) ? RANGECHECK * 1.7 : RANGECHECK
+                let checkRightRange = (robotState == .TURNINGRIGHT) ? RANGECHECK * 1.7 : RANGECHECK
+                if leftRange < checkLeftRange || rightRange < checkRightRange {
+                    if leftRange < rightRange && robotState != .TURNINGLEFT {
+                        turnRight()
+                        robotState = .TURNINGRIGHT
+                    } else if leftRange > rightRange && robotState != .TURNINGRIGHT {
+                        turnLeft()
+                        robotState = .TURNINGLEFT
+                    } else if leftRange == rightRange {
+                        turnRight()
+                        robotState = .TURNINGRIGHT
+                    }
+                } else if robotState != .FORWARD {
+                    goForward()
+                    robotState = .FORWARD
+                }
+                setLeds(robotState)
+                if robotState == .FORWARD {
+                    usleep(25000)
+                } else {
+                    usleep(50000)
+                }
+                
+                if let buttonValue = startButton.isButtonPressed() {
+                    if !buttonValue {
+                        buttonStillPressed = false
+                    } else if !buttonStillPressed {
+                        running = false
+                    }
+                }
+            }
+            stopRover()
+            while(startButton.isButtonPressed()!) {}
         }
-        var movingForward = false
-        var buttonStillPressed = true
-		var running = true
-
-		while(running) {    
-			usleep(5000)
-			let range = forwardRangeFinder.getRange()
-            print("Range:  \(range)")
-            if range < 9 {
-				turnRight()
-				movingForward = false
-				usleep(500000)
-				stopRover()			
-			} else if !movingForward {
-				goForward()
-				movingForward = true
-			}				
-			
-			if let buttonValue = startButton.isButtonPressed() {
-				if !buttonValue {
-					buttonStillPressed = false
-				} else if !buttonStillPressed {
-					running = false
-				}
-            }
-       }
-		runningLed.turnLedOff()        
- 		stopRover()       
+    }
+    
+    func setLeds(state: RobotState) {
+        switch state {
+        case .STOPPED:
+            redLed.turnLedOn()
+            greenLed.turnLedOn()
+            yellowLed.turnLedOn()
+        case .FORWARD:
+            redLed.turnLedOn()
+            greenLed.turnLedOff()
+            yellowLed.turnLedOff()
+        case .REVERSE:
+            redLed.turnLedOff()
+            greenLed.turnLedOff()
+            yellowLed.turnLedOff()
+        case .TURNINGLEFT:
+            redLed.turnLedOff()
+            greenLed.turnLedOn()
+            yellowLed.turnLedOff()
+        case .TURNINGRIGHT:
+            redLed.turnLedOff()
+            greenLed.turnLedOff()
+            yellowLed.turnLedOn()			
+        }
     }
 }
