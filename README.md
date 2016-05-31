@@ -6,5 +6,7 @@ BuddyBot is definitely a work in progress. The following posts document the prog
 
 + <a href="http://myroboticadventure.blogspot.com/2016/05/the-first-robot-programed-in-swift-with.html">The first robot programmed in Swift with SwiftyBones</a>
 + <a href="http://myroboticadventure.blogspot.com/2016/05/the-first-robot-programmed-in-swift.html">BuddyBot - The Swift robot gets its first upgrades</a>
++ <a href="http://myroboticadventure.blogspot.com/2016/05/buddybot-gets-obstacle-avoidance.html">BuddyBot gets Obstacle Avoidance</a>
++ <a href="http://myroboticadventure.blogspot.com/2016/05/buddybot-update-and-parts-list.html">BuddyBot update and parts list</a>
 
 There will definitely be more updates as the BuddyBot grows
